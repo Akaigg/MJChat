@@ -102,6 +102,29 @@ Resposta: `{"token": "...", "link": "https://chat.suaempresa.com.br/c/...", "cli
 
 A documentação interativa da API fica em `/api/documentacao`.
 
+### Enviar o botão pelo WhatsApp (script)
+
+Preencha no `backend/.env`:
+
+```
+KAPSO_API_KEY=<chave da Kapso>
+KAPSO_ID_NUMERO=1087358919742996
+```
+
+Exemplos (dentro da pasta `backend`):
+
+```bash
+python scripts/enviar_botao_kapso.py --para 5511987654321 --cliente-id 1
+python scripts/enviar_botao_kapso.py --para 5511987654321 --link https://chat.suaempresa.com.br/c/TOKEN
+python scripts/enviar_botao_kapso.py --para 5511987654321 --cliente-id 1 --template atendimento_chat --parametro Maria
+python scripts/enviar_botao_kapso.py --para 5511987654321 --cliente-id 1 --simular
+```
+
+- Sem `--template`, o script envia uma mensagem interativa com botão de link (`cta_url`). A Meta só aceita esse tipo dentro da janela de 24 horas, ou seja, depois que o cliente mandou alguma mensagem para o número.
+- Com `--template`, envia um template aprovado cujo botão de URL termina em `{{1}}` (`https://chat.suaempresa.com.br/c/{{1}}`). O script coloca o token do cliente nessa variável. Funciona a qualquer momento.
+- Sem `--cliente-id` e sem `--link`, o script procura o cliente cadastrado com o telefone de destino.
+- `--simular` mostra a mensagem que seria enviada, sem enviar.
+
 ## Estrutura
 
 ```

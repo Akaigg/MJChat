@@ -27,5 +27,10 @@ HORAS_SESSAO = int(os.getenv("HORAS_SESSAO", "12"))
 TAMANHO_MAXIMO_ANEXO = int(os.getenv("TAMANHO_MAXIMO_ANEXO_MB", "10")) * 1024 * 1024
 ANOS_RETENCAO = 5
 
+KAPSO_API_KEY = os.getenv("KAPSO_API_KEY", "")
+KAPSO_ID_NUMERO = os.getenv("KAPSO_ID_NUMERO", "")
+KAPSO_URL_BASE = os.getenv("KAPSO_URL_BASE", "https://api.kapso.ai/meta/whatsapp").rstrip("/")
+KAPSO_VERSAO_GRAPH = os.getenv("KAPSO_VERSAO_GRAPH", "v23.0")
+
 if len(CHAVE_SECRETA) < 16:
     raise RuntimeError("Defina CHAVE_SECRETA no arquivo backend/.env com pelo menos 16 caracteres")
