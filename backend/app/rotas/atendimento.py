@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from app import servico
-from app.eventos import difundir
+from app.eventos import difundir, enriquecer
 from app.rotas.comum import erro_http, ler_arquivo, resposta_arquivo
 from app.seguranca import usuario_autenticado
 
@@ -11,7 +11,10 @@ roteador = APIRouter(prefix="/api/atendimento", tags=["Atendimento"])
 
 @roteador.get("/painel")
 def painel(usuario: dict = Depends(usuario_autenticado)):
-    return servico.listar_painel(usuario)
+    dados = servico.listar_painel(usuario)
+    for conversa in (*dados["fila"], *dados["meus"]):
+        enriquecer(conversa)
+    return dados
 
 
 @roteador.get("/historico")

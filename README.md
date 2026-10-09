@@ -14,6 +14,8 @@ Live chat para atendimento de cobrança. O cliente recebe pelo WhatsApp (via Kap
 - Envio de anexos e fotos pelos dois lados (JPG, PNG, GIF, WEBP, PDF, DOC/DOCX, XLS/XLSX, TXT; até 10 MB).
 - **Boleto formatado:** link extenso ou link de boleto enviado pelo operador vira um cartão com credor, valor, vencimento e os botões "Abrir boleto" e "Copiar link". Também existe o botão **Enviar boleto**, para informar link, valor e vencimento.
 - Operadores identificados por **matrícula de 4 números**. A senha é definida pelo administrador, guardada com hash bcrypt e nunca mais exibida. O operador não consegue trocar a senha.
+- **Confirmação de leitura:** cada mensagem mostra ✓ enviada, ✓✓ cinza entregue (chegou ao aparelho) e ✓✓ azul lida (a tela estava aberta e visível). Passando o mouse aparecem os horários. Do lado do cliente, só conta como lida quando o operador responsável pela conversa abre a conversa. As confirmações ficam na tabela `confirmacoes_mensagens` e seguem a mesma retenção de 5 anos.
+- **Online / visto por último:** o operador vê se o cliente está online ou "visto por último hoje às 15:30" (na ficha e com um ponto verde na lista). O cliente vê o mesmo do operador que o atende. O administrador vê na lista de operadores quem está online.
 - Painel do administrador: cadastrar e desativar operadores, redefinir senhas, cadastrar clientes e gerar links, consultar o histórico de conversas.
 - **Retenção legal de 5 anos:** cada conversa grava `retencao_ate`, o sistema não tem nenhuma função de exclusão e triggers no SQL Server bloqueiam `DELETE` de conversas, mensagens e anexos dentro do prazo e qualquer `UPDATE` em mensagens e anexos. Os anexos ficam dentro do banco (`VARBINARY(MAX)`), então entram no mesmo backup.
 

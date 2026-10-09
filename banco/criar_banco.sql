@@ -96,6 +96,24 @@ CREATE TABLE dbo.anexos (
 );
 GO
 
+IF COL_LENGTH(N'dbo.usuarios', N'visto_por_ultimo') IS NULL
+    ALTER TABLE dbo.usuarios ADD visto_por_ultimo DATETIME2(0) NULL;
+IF COL_LENGTH(N'dbo.clientes', N'visto_por_ultimo') IS NULL
+    ALTER TABLE dbo.clientes ADD visto_por_ultimo DATETIME2(0) NULL;
+GO
+
+IF OBJECT_ID(N'dbo.confirmacoes_mensagens', N'U') IS NULL
+CREATE TABLE dbo.confirmacoes_mensagens (
+    id INT IDENTITY(1,1) NOT NULL CONSTRAINT pk_confirmacoes_mensagens PRIMARY KEY,
+    mensagem_id INT NOT NULL CONSTRAINT fk_confirmacoes_mensagens REFERENCES dbo.mensagens (id),
+    tipo VARCHAR(20) NOT NULL,
+    usuario_id INT NULL CONSTRAINT fk_confirmacoes_usuarios REFERENCES dbo.usuarios (id),
+    registrada_em DATETIME2(0) NOT NULL CONSTRAINT df_confirmacoes_registrada_em DEFAULT SYSDATETIME(),
+    CONSTRAINT uq_confirmacoes_mensagem_tipo UNIQUE (mensagem_id, tipo),
+    CONSTRAINT ck_confirmacoes_tipo CHECK (tipo IN ('entregue', 'lida'))
+);
+GO
+
 CREATE OR ALTER TRIGGER dbo.tr_conversas_retencao ON dbo.conversas
 INSTEAD OF DELETE
 AS
@@ -153,5 +171,30 @@ AS
 BEGIN
     SET NOCOUNT ON;
     THROW 50005, N'Anexos registrados não podem ser alterados.', 1;
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.tr_confirmacoes_retencao ON dbo.confirmacoes_mensagens
+INSTEAD OF DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (
+        SELECT 1 FROM deleted d
+        INNER JOIN dbo.mensagens m ON m.id = d.mensagem_id
+        INNER JOIN dbo.conversas c ON c.id = m.conversa_id
+        WHERE c.retencao_ate > CAST(SYSDATETIME() AS DATE)
+    )
+        THROW 50006, N'Confirmações de leitura devem ser mantidas por 5 anos (prazo legal de retenção).', 1;
+    DELETE cm FROM dbo.confirmacoes_mensagens cm INNER JOIN deleted d ON d.id = cm.id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER dbo.tr_confirmacoes_imutaveis ON dbo.confirmacoes_mensagens
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    THROW 50007, N'Confirmações de leitura registradas não podem ser alteradas.', 1;
 END;
 GO

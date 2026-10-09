@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app import servico
+from app.eventos import esta_online, sala_usuario
 from app.rotas.comum import erro_http
 from app.seguranca import administrador, gerar_senha_aleatoria
 
@@ -33,7 +34,10 @@ class DadosCliente(BaseModel):
 
 @roteador.get("/usuarios")
 def listar_usuarios():
-    return servico.listar_usuarios()
+    usuarios = servico.listar_usuarios()
+    for usuario in usuarios:
+        usuario["online"] = esta_online(sala_usuario(usuario["id"]))
+    return usuarios
 
 
 @roteador.post("/usuarios", status_code=201)

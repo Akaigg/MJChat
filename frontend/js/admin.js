@@ -48,7 +48,13 @@
           <td>${Comum.escapar(operador.nome)}</td>
           <td>${operador.perfil === "admin" ? "Administrador" : "Operador"}</td>
           <td><span class="etiqueta ${operador.ativo ? "etiqueta-em_atendimento" : "etiqueta-encerrada"}">${operador.ativo ? "Ativo" : "Inativo"}</span></td>
-          <td>${operador.ultimo_acesso ? Comum.formatarHorario(operador.ultimo_acesso) : "-"}</td>
+          <td>${
+            operador.online
+              ? '<span class="presenca online"><span class="ponto-online"></span>online</span>'
+              : operador.visto_por_ultimo
+              ? Comum.formatarHorario(operador.visto_por_ultimo)
+              : "-"
+          }</td>
           <td class="acoes-tabela">
             <button type="button" class="botao botao-secundario" data-senha="${operador.id}">Redefinir senha</button>
             <button type="button" class="botao ${operador.ativo ? "botao-perigo" : "botao-secundario"}" data-ativo="${operador.id}">
@@ -290,7 +296,13 @@
     } · Guardar até ${Comum.formatarData(conversa.retencao_ate)}`;
     const lista = $("conversa-mensagens");
     lista.innerHTML = "";
-    const opcoes = { perspectiva: "operador", mostrarOperador: true, credor: conversa.cliente.credor, urlAnexo };
+    const opcoes = {
+      perspectiva: "operador",
+      mostrarOperador: true,
+      todasConfirmacoes: true,
+      credor: conversa.cliente.credor,
+      urlAnexo,
+    };
     mensagens.forEach((mensagem) => lista.appendChild(Comum.criarMensagem(mensagem, opcoes)));
     $("modal-conversa").classList.remove("oculto");
   });

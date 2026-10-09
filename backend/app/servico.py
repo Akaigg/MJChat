@@ -2,14 +2,16 @@ from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 
 from app import configuracao, seguranca
 from app.banco import abrir_sessao
-from app.modelos import FUSO, Anexo, Cliente, Conversa, Mensagem, Usuario, agora
+from app.modelos import FUSO, Anexo, Cliente, ConfirmacaoMensagem, Conversa, Mensagem, Usuario, agora
 from app.utilitarios import calcular_retencao, extrair_boleto, somente_digitos, url_valida
 
 STATUS_ATIVOS = ("iniciada", "aguardando", "em_atendimento")
 STATUS_VALIDOS = (*STATUS_ATIVOS, "encerrada")
+TIPOS_CONFIRMACAO = ("entregue", "lida")
 PERFIS = ("admin", "operador")
 ITENS_POR_PAGINA = 30
 
@@ -55,6 +57,7 @@ def serializar_cliente(cliente: Cliente, completo: bool = True) -> dict:
                 "cpf": cliente.cpf,
                 "telefone": cliente.telefone,
                 "link": link_cliente(cliente),
+                "visto_por_ultimo": iso(cliente.visto_por_ultimo),
             }
         )
     return dados
@@ -69,10 +72,12 @@ def serializar_usuario(usuario: Usuario) -> dict:
         "ativo": usuario.ativo,
         "criado_em": iso(usuario.criado_em),
         "ultimo_acesso": iso(usuario.ultimo_acesso),
+        "visto_por_ultimo": iso(usuario.visto_por_ultimo),
     }
 
 
 def serializar_mensagem(mensagem: Mensagem) -> dict:
+    confirmacoes = {confirmacao.tipo: confirmacao.registrada_em for confirmacao in mensagem.confirmacoes}
     dados = {
         "id": mensagem.id,
         "conversa_id": mensagem.conversa_id,
@@ -81,6 +86,8 @@ def serializar_mensagem(mensagem: Mensagem) -> dict:
         "tipo": mensagem.tipo,
         "conteudo": mensagem.conteudo,
         "enviada_em": iso(mensagem.enviada_em),
+        "entregue_em": iso(confirmacoes.get("entregue")),
+        "lida_em": iso(confirmacoes.get("lida")),
         "boleto": None,
         "anexo": None,
     }
@@ -110,15 +117,30 @@ def serializar_conversa(conversa: Conversa, previa: str | None = None) -> dict:
         "encerrada_em": iso(conversa.encerrada_em),
         "ultima_mensagem_em": iso(conversa.ultima_mensagem_em),
         "retencao_ate": conversa.retencao_ate.isoformat(),
-        "operador": {"id": conversa.operador.id, "nome": conversa.operador.nome} if conversa.operador else None,
+        "operador": (
+            {
+                "id": conversa.operador.id,
+                "nome": conversa.operador.nome,
+                "visto_por_ultimo": iso(conversa.operador.visto_por_ultimo),
+            }
+            if conversa.operador
+            else None
+        ),
         "cliente": serializar_cliente(conversa.cliente),
         "previa": previa,
     }
 
 
 def serializar_status_cliente(conversa: dict) -> dict:
-    operador = conversa.get("operador")
-    return {"id": conversa["id"], "status": conversa["status"], "operador_nome": operador["nome"] if operador else None}
+    operador = conversa.get("operador") or {}
+    return {
+        "id": conversa["id"],
+        "status": conversa["status"],
+        "operador_id": operador.get("id"),
+        "operador_nome": operador.get("nome"),
+        "operador_online": operador.get("online", False),
+        "operador_visto_por_ultimo": operador.get("visto_por_ultimo"),
+    }
 
 
 def texto_previa(mensagem: Mensagem) -> str:
@@ -288,6 +310,83 @@ def conversa_ativa_do_cliente(token: str):
         cliente = _cliente_por_token(sessao, token)
         conversa = _conversa_ativa(sessao, cliente.id)
         return conversa.id if conversa else None
+
+
+def identificar_cliente(token: str) -> dict:
+    with abrir_sessao() as sessao:
+        cliente = _cliente_por_token(sessao, token)
+        conversa = _conversa_ativa(sessao, cliente.id)
+        return {"cliente_id": cliente.id, "conversa_id": conversa.id if conversa else None}
+
+
+def registrar_visto_cliente(cliente_id: int) -> str | None:
+    with abrir_sessao() as sessao:
+        cliente = sessao.get(Cliente, cliente_id)
+        if not cliente:
+            return None
+        cliente.visto_por_ultimo = agora()
+        return iso(cliente.visto_por_ultimo)
+
+
+def registrar_visto_usuario(usuario_id: int):
+    with abrir_sessao() as sessao:
+        usuario = sessao.get(Usuario, usuario_id)
+        if not usuario:
+            return None, []
+        usuario.visto_por_ultimo = agora()
+        conversas = sessao.scalars(
+            select(Conversa.id).where(Conversa.status == "em_atendimento", Conversa.operador_id == usuario_id)
+        ).all()
+        return iso(usuario.visto_por_ultimo), list(conversas)
+
+
+def _confirmar(sessao, conversa_id: int, remetente: str, tipo: str, ate_id: int | None, usuario_id: int | None):
+    if tipo not in TIPOS_CONFIRMACAO:
+        raise ErroNegocio("Tipo de confirmação inválido")
+    momento = agora()
+    resultado = []
+    for atual in ("entregue", "lida") if tipo == "lida" else ("entregue",):
+        pendentes = select(Mensagem.id).where(
+            Mensagem.conversa_id == conversa_id,
+            Mensagem.remetente == remetente,
+            ~select(ConfirmacaoMensagem.id)
+            .where(ConfirmacaoMensagem.mensagem_id == Mensagem.id, ConfirmacaoMensagem.tipo == atual)
+            .exists(),
+        )
+        if ate_id:
+            pendentes = pendentes.where(Mensagem.id <= ate_id)
+        ids = list(sessao.scalars(pendentes.order_by(Mensagem.id)))
+        if ids:
+            sessao.add_all(
+                ConfirmacaoMensagem(mensagem_id=mensagem_id, tipo=atual, usuario_id=usuario_id, registrada_em=momento)
+                for mensagem_id in ids
+            )
+            resultado.append({"conversa_id": conversa_id, "tipo": atual, "ids": ids, "momento": iso(momento)})
+    sessao.flush()
+    return resultado
+
+
+def confirmar_pelo_cliente(token: str, conversa_id: int, tipo: str, ate_id: int | None = None) -> list[dict]:
+    try:
+        with abrir_sessao() as sessao:
+            cliente = _cliente_por_token(sessao, token)
+            conversa = sessao.get(Conversa, conversa_id)
+            if not conversa or conversa.cliente_id != cliente.id:
+                raise ErroNegocio("Conversa não encontrada", 404)
+            return _confirmar(sessao, conversa.id, "operador", tipo, ate_id, None)
+    except IntegrityError:
+        return []
+
+
+def confirmar_pelo_operador(usuario: dict, conversa_id: int, tipo: str, ate_id: int | None = None) -> list[dict]:
+    try:
+        with abrir_sessao() as sessao:
+            conversa = sessao.get(Conversa, conversa_id)
+            if not conversa or conversa.operador_id != usuario["id"]:
+                return []
+            return _confirmar(sessao, conversa.id, "cliente", tipo, ate_id, usuario["id"])
+    except IntegrityError:
+        return []
 
 
 def registrar_mensagem_cliente(token: str, conteudo: str | None = None, arquivo=None):

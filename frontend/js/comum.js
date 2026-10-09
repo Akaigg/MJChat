@@ -6,6 +6,8 @@ const Comum = (() => {
     clipe: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
     enviar: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>',
     boleto: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8v8M9 8v8M11 8v8M14 8v8M16 8v8M18 8v8"/></svg>',
+    visto: '<svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6l3.5 3.5L11 2"/></svg>',
+    vistoDuplo: '<svg width="18" height="11" viewBox="0 0 18 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6l3.5 3.5L11 2"/><path d="M7.5 9.5L8 10l7-8"/></svg>',
     usuario: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
   };
 
@@ -40,6 +42,21 @@ const Comum = (() => {
     const hora = data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     if (data.toDateString() === new Date().toDateString()) return hora;
     return `${data.toLocaleDateString("pt-BR")} ${hora}`;
+  }
+
+  function formatarVistoPorUltimo(iso) {
+    if (!iso) return "offline";
+    const data = new Date(iso);
+    const hora = data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const ontem = new Date();
+    ontem.setDate(ontem.getDate() - 1);
+    if (data.toDateString() === new Date().toDateString()) return `visto por último hoje às ${hora}`;
+    if (data.toDateString() === ontem.toDateString()) return `visto por último ontem às ${hora}`;
+    return `visto por último em ${data.toLocaleDateString("pt-BR")} às ${hora}`;
+  }
+
+  function textoPresenca(online, vistoPorUltimo) {
+    return online ? "online" : formatarVistoPorUltimo(vistoPorUltimo);
   }
 
   function formatarTelefone(telefone) {
@@ -178,6 +195,29 @@ const Comum = (() => {
       </div>`;
   }
 
+  function desenharConfirmacao(linha) {
+    const elemento = linha.querySelector(".confirmacao");
+    if (!elemento) return;
+    const { enviada, entregue, lida } = linha.dataset;
+    const detalhes = [`Enviada: ${formatarHorario(enviada)}`];
+    if (entregue) detalhes.push(`Entregue: ${formatarHorario(entregue)}`);
+    if (lida) detalhes.push(`Lida: ${formatarHorario(lida)}`);
+    elemento.className = `confirmacao ${lida ? "lida" : entregue ? "entregue" : "enviada"}`;
+    elemento.title = detalhes.join("\n");
+    elemento.setAttribute("aria-label", lida ? "Lida" : entregue ? "Entregue" : "Enviada");
+    elemento.innerHTML = lida || entregue ? icones.vistoDuplo : icones.visto;
+  }
+
+  function aplicarConfirmacoes(container, confirmacao) {
+    confirmacao.ids.forEach((id) => {
+      const linha = container.querySelector(`.linha-mensagem[data-id="${id}"]`);
+      if (!linha) return;
+      if (!linha.dataset.entregue) linha.dataset.entregue = confirmacao.momento;
+      if (confirmacao.tipo === "lida" && !linha.dataset.lida) linha.dataset.lida = confirmacao.momento;
+      desenharConfirmacao(linha);
+    });
+  }
+
   function criarMensagem(mensagem, opcoes) {
     const linha = document.createElement("div");
     linha.dataset.id = mensagem.id;
@@ -198,11 +238,16 @@ const Comum = (() => {
     if (mensagem.boleto) html += texto + cartaoBoleto(mensagem.boleto, opcoes.credor);
     else if (mensagem.anexo) html += '<div class="espaco-anexo"></div>' + texto;
     else html += texto;
-    html += `<div class="horario">${formatarHorario(mensagem.enviada_em)}</div>`;
+    const confirmacao = propria || opcoes.todasConfirmacoes ? '<span class="confirmacao"></span>' : "";
+    html += `<div class="horario">${formatarHorario(mensagem.enviada_em)}${confirmacao}</div>`;
     const balao = document.createElement("div");
     balao.className = "balao";
     balao.innerHTML = html;
     linha.appendChild(balao);
+    linha.dataset.enviada = mensagem.enviada_em;
+    linha.dataset.entregue = mensagem.entregue_em || "";
+    linha.dataset.lida = mensagem.lida_em || "";
+    desenharConfirmacao(linha);
     if (mensagem.anexo) montarAnexo(balao.querySelector(".espaco-anexo"), mensagem.anexo, opcoes);
     return linha;
   }
@@ -262,6 +307,9 @@ const Comum = (() => {
     formatarHorario,
     formatarTelefone,
     formatarCpf,
+    formatarVistoPorUltimo,
+    textoPresenca,
+    aplicarConfirmacoes,
     vencido,
     avisar,
     copiar,

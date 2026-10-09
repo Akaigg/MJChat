@@ -18,7 +18,15 @@
     botaoNovo: document.getElementById("botao-novo"),
   };
 
-  const estado = { cliente: null, conversa: null, idsExibidos: new Set(), socket: null, ultimoDigitando: 0 };
+  const estado = {
+    cliente: null,
+    conversa: null,
+    idsExibidos: new Set(),
+    socket: null,
+    ultimoDigitando: 0,
+    ultimaDoOperador: 0,
+    confirmadas: { entregue: 0, lida: 0 },
+  };
   let temporizadorDigitando;
 
   elementos.avatar.innerHTML = Comum.icones.chat;
@@ -45,22 +53,44 @@
     if (texto) elementos.textoErro.textContent = texto;
   }
 
+  function confirmarRecebimento() {
+    if (!estado.socket || !estado.socket.connected || !estado.conversa || !estado.ultimaDoOperador) return;
+    const tipo = document.visibilityState === "visible" ? "lida" : "entregue";
+    if (estado.confirmadas[tipo] >= estado.ultimaDoOperador) return;
+    const ate = estado.ultimaDoOperador;
+    estado.confirmadas[tipo] = ate;
+    if (tipo === "lida") estado.confirmadas.entregue = Math.max(estado.confirmadas.entregue, ate);
+    estado.socket.emit("confirmar", { conversa_id: estado.conversa.id, tipo, ate });
+  }
+
   function adicionarMensagem(mensagem) {
     if (estado.idsExibidos.has(mensagem.id)) return;
     estado.idsExibidos.add(mensagem.id);
+    if (mensagem.remetente === "operador") estado.ultimaDoOperador = Math.max(estado.ultimaDoOperador, mensagem.id);
     elementos.lista.appendChild(Comum.criarMensagem(mensagem, opcoesMensagem()));
     rolarParaFim();
   }
 
-  function atualizarStatus(conversa) {
-    estado.conversa = conversa;
+  function desenharStatus() {
+    const conversa = estado.conversa;
     const textos = {
       iniciada: "Escreva o assunto do seu atendimento",
       aguardando: "Aguardando um operador",
-      em_atendimento: conversa.operador_nome ? `Em atendimento com ${conversa.operador_nome}` : "Em atendimento",
       encerrada: "Atendimento encerrado",
     };
-    elementos.status.textContent = textos[conversa.status] || "";
+    if (conversa.status === "em_atendimento" && conversa.operador_nome) {
+      const presenca = Comum.textoPresenca(conversa.operador_online, conversa.operador_visto_por_ultimo);
+      elementos.status.innerHTML = `${conversa.operador_online ? '<span class="ponto-online"></span>' : ""}${Comum.escapar(
+        conversa.operador_nome
+      )} · ${Comum.escapar(presenca)}`;
+    } else {
+      elementos.status.textContent = textos[conversa.status] || "Em atendimento";
+    }
+  }
+
+  function atualizarStatus(conversa) {
+    estado.conversa = conversa;
+    desenharStatus();
     const encerrada = conversa.status === "encerrada";
     elementos.compositor.classList.toggle("oculto", encerrada);
     elementos.encerrada.classList.toggle("oculto", !encerrada);
@@ -85,6 +115,8 @@
     elementos.empresa.textContent = dados.empresa;
     elementos.lista.innerHTML = "";
     estado.idsExibidos.clear();
+    estado.ultimaDoOperador = 0;
+    estado.confirmadas = { entregue: 0, lida: 0 };
     dados.mensagens.forEach(adicionarMensagem);
     atualizarStatus(dados.conversa);
     return true;
@@ -93,9 +125,10 @@
   function conectar() {
     estado.socket = io({ auth: { cliente: token }, transports: ["websocket", "polling"] });
     let primeiraConexao = true;
-    estado.socket.on("connect", () => {
-      if (!primeiraConexao) carregar();
+    estado.socket.on("connect", async () => {
+      if (!primeiraConexao) await carregar();
       primeiraConexao = false;
+      confirmarRecebimento();
     });
     estado.socket.on("connect_error", (erro) => {
       if (erro.message === "link_invalido") mostrarErro();
@@ -103,8 +136,20 @@
     estado.socket.on("nova_mensagem", (mensagem) => {
       elementos.digitando.classList.add("oculto");
       adicionarMensagem(mensagem);
+      confirmarRecebimento();
     });
     estado.socket.on("status_conversa", atualizarStatus);
+    estado.socket.on("mensagens_confirmadas", (confirmacao) => {
+      if (estado.conversa && confirmacao.conversa_id === estado.conversa.id) {
+        Comum.aplicarConfirmacoes(elementos.lista, confirmacao);
+      }
+    });
+    estado.socket.on("presenca", (dados) => {
+      if (dados.tipo !== "operador" || !estado.conversa || dados.operador_id !== estado.conversa.operador_id) return;
+      estado.conversa.operador_online = dados.online;
+      estado.conversa.operador_visto_por_ultimo = dados.visto_por_ultimo;
+      desenharStatus();
+    });
     estado.socket.on("digitando", (dados) => {
       if (dados.remetente !== "operador") return;
       elementos.digitando.classList.remove("oculto");
@@ -176,6 +221,10 @@
       estado.socket.emit("digitando");
     }
   });
+
+  document.addEventListener("visibilitychange", confirmarRecebimento);
+  window.addEventListener("focus", confirmarRecebimento);
+  setInterval(() => estado.conversa && !estado.conversa.operador_online && desenharStatus(), 60000);
 
   elementos.botaoAnexo.addEventListener("click", () => elementos.arquivo.click());
   elementos.arquivo.addEventListener("change", () => {

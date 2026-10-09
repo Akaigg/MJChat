@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Unicode,
     UnicodeText,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +38,7 @@ class Usuario(Base):
     ativo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=agora)
     ultimo_acesso: Mapped[datetime | None] = mapped_column(DateTime)
+    visto_por_ultimo: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class Cliente(Base):
@@ -52,6 +54,7 @@ class Cliente(Base):
     token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=agora)
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=agora)
+    visto_por_ultimo: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class Conversa(Base):
@@ -90,6 +93,7 @@ class Mensagem(Base):
 
     usuario: Mapped[Usuario | None] = relationship(lazy="joined")
     anexo: Mapped["Anexo | None"] = relationship(back_populates="mensagem", lazy="joined", uselist=False)
+    confirmacoes: Mapped[list["ConfirmacaoMensagem"]] = relationship(lazy="selectin")
 
 
 class Anexo(Base):
@@ -104,3 +108,17 @@ class Anexo(Base):
     dados: Mapped[bytes] = mapped_column(LargeBinary, nullable=False, deferred=True)
 
     mensagem: Mapped[Mensagem] = relationship(back_populates="anexo")
+
+
+class ConfirmacaoMensagem(Base):
+    __tablename__ = "confirmacoes_mensagens"
+    __table_args__ = (
+        UniqueConstraint("mensagem_id", "tipo", name="uq_confirmacoes_mensagem_tipo"),
+        {"implicit_returning": False},
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    mensagem_id: Mapped[int] = mapped_column(ForeignKey("mensagens.id"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False)
+    usuario_id: Mapped[int | None] = mapped_column(ForeignKey("usuarios.id"))
+    registrada_em: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=agora)

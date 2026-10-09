@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from app import configuracao
 from app.banco import Base, abrir_sessao, criar_motor, motor, usa_sql_server
-from app.modelos import Cliente, Conversa, Mensagem, Usuario, agora
+from app.modelos import Cliente, ConfirmacaoMensagem, Conversa, Mensagem, Usuario, agora
 from app.seguranca import gerar_hash_senha, gerar_token_cliente
 from app.servico import (
     MENSAGEM_ASSUMIDA,
@@ -73,6 +73,19 @@ def adicionar_mensagem(sessao, conversa, remetente, conteudo, momento, usuario=N
     conversa.ultima_mensagem_em = momento
     sessao.add(mensagem)
     sessao.flush()
+    return mensagem
+
+
+def confirmar_leitura(sessao, mensagem, leitor=None):
+    for tipo, segundos in (("entregue", 5), ("lida", 40)):
+        sessao.add(
+            ConfirmacaoMensagem(
+                mensagem_id=mensagem.id,
+                tipo=tipo,
+                usuario_id=leitor.id if leitor else None,
+                registrada_em=mensagem.enviada_em + timedelta(seconds=segundos),
+            )
+        )
 
 
 def popular_dados():
@@ -145,7 +158,14 @@ def popular_dados():
             ("sistema", MENSAGEM_ENCERRADA, None, None),
         ]
         for indice, (remetente, texto, usuario, boleto) in enumerate(roteiro):
-            adicionar_mensagem(sessao, encerrada, remetente, texto, inicio + timedelta(minutes=indice * 2), usuario, boleto)
+            momento_mensagem = inicio + timedelta(minutes=indice * 2)
+            mensagem = adicionar_mensagem(sessao, encerrada, remetente, texto, momento_mensagem, usuario, boleto)
+            if remetente == "cliente":
+                confirmar_leitura(sessao, mensagem, operadora)
+            elif remetente == "operador":
+                confirmar_leitura(sessao, mensagem)
+        clientes[1].visto_por_ultimo = inicio + timedelta(minutes=16)
+        operadora.visto_por_ultimo = inicio + timedelta(minutes=20)
 
         aguardando = Conversa(
             cliente_id=clientes[2].id,

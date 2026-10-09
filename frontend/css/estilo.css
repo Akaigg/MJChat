@@ -980,3 +980,56 @@ td .botao {
     display: inline-flex !important;
   }
 }
+
+.balao .horario {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.confirmacao {
+  display: inline-flex;
+  align-items: center;
+  color: #8696a0;
+}
+
+.confirmacao.lida {
+  color: #2c9cdb;
+}
+
+.presenca {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.presenca.online {
+  color: var(--cor-primaria);
+  font-weight: 600;
+}
+
+.ponto-online {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #25d366;
+}
+
+.cabecalho-cliente small {
+  display: block;
+  max-width: calc(100vw - 90px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cabecalho-cliente .ponto-online {
+  margin-right: 4px;
+  vertical-align: middle;
+}

@@ -40,6 +40,8 @@
     idsExibidos: new Set(),
     anexos: new Map(),
     ultimoDigitando: 0,
+    ultimaDoCliente: 0,
+    confirmadas: { entregue: 0, lida: 0 },
   };
   let temporizadorDigitando;
 
@@ -74,6 +76,33 @@
     } catch {}
   }
 
+  function confirmarRecebimento() {
+    const conversa = estado.atual;
+    if (!conversa || !minha(conversa) || !estado.ultimaDoCliente) return;
+    const tipo = document.visibilityState === "visible" ? "lida" : "entregue";
+    if (estado.confirmadas[tipo] >= estado.ultimaDoCliente) return;
+    const ate = estado.ultimaDoCliente;
+    estado.confirmadas[tipo] = ate;
+    if (tipo === "lida") estado.confirmadas.entregue = Math.max(estado.confirmadas.entregue, ate);
+    socket.emit("confirmar", { conversa_id: conversa.id, tipo, ate });
+  }
+
+  function confirmarEntrega(conversa) {
+    if (minha(conversa) && (!estado.atual || estado.atual.id !== conversa.id)) {
+      socket.emit("confirmar", { conversa_id: conversa.id, tipo: "entregue" });
+    }
+  }
+
+  function desenharPresenca() {
+    const elemento = $("ficha-presenca");
+    const cliente = estado.atual && estado.atual.cliente;
+    if (!cliente) return;
+    elemento.className = `presenca${cliente.online ? " online" : ""}`;
+    elemento.innerHTML = `${cliente.online ? '<span class="ponto-online"></span>' : ""}${Comum.escapar(
+      Comum.textoPresenca(cliente.online, cliente.visto_por_ultimo)
+    )}`;
+  }
+
   function tempoDecorrido(iso) {
     const minutos = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
     if (minutos < 1) return "agora";
@@ -106,7 +135,12 @@
           : Comum.formatarHorario(conversa.ultima_mensagem_em);
         return `
           <li class="item-conversa${selecionada}" data-id="${conversa.id}">
-            <div class="linha"><strong>${Comum.escapar(conversa.cliente.nome)}</strong><small>${tempo}</small></div>
+            <div class="linha">
+              <strong>${conversa.cliente.online ? '<span class="ponto-online" title="Online"></span> ' : ""}${Comum.escapar(
+                conversa.cliente.nome
+              )}</strong>
+              <small>${tempo}</small>
+            </div>
             <div class="credor">${Comum.escapar(conversa.cliente.credor)} · ${Comum.formatarMoeda(conversa.cliente.valor_divida)}</div>
             <div class="linha">
               <span class="previa">${Comum.escapar(conversa.previa || conversa.assunto || "")}</span>
@@ -140,6 +174,7 @@
     $("ficha-vencimento").textContent =
       Comum.formatarData(cliente.data_vencimento) + (Comum.vencido(cliente.data_vencimento) ? " (vencido)" : "");
     $("ficha-assunto").textContent = conversa.assunto ? `Assunto: ${conversa.assunto}` : "Assunto ainda não informado";
+    desenharPresenca();
 
     const podeAssumir = conversa.status === "aguardando" || conversa.status === "iniciada";
     const podeEscrever = minha(conversa);
@@ -171,6 +206,7 @@
   function adicionarMensagem(mensagem) {
     if (estado.idsExibidos.has(mensagem.id)) return;
     estado.idsExibidos.add(mensagem.id);
+    if (mensagem.remetente === "cliente") estado.ultimaDoCliente = Math.max(estado.ultimaDoCliente, mensagem.id);
     const opcoes = {
       perspectiva: "operador",
       mostrarOperador: true,
@@ -194,11 +230,14 @@
       estado.atual = resposta.conversa;
       estado.naoLidas.delete(id);
       estado.idsExibidos.clear();
+      estado.ultimaDoCliente = 0;
+      estado.confirmadas = { entregue: 0, lida: 0 };
       elementos.mensagens.innerHTML = "";
       elementos.digitando.classList.add("oculto");
       resposta.mensagens.forEach(adicionarMensagem);
       renderizarFicha();
       renderizarLista();
+      confirmarRecebimento();
       if (minha(estado.atual)) elementos.texto.focus();
     });
   }
@@ -215,6 +254,7 @@
       const painel = await Comum.api("/api/atendimento/painel");
       estado.conversas.clear();
       [...painel.fila, ...painel.meus].forEach((c) => estado.conversas.set(c.id, c));
+      painel.meus.forEach(confirmarEntrega);
       renderizarLista();
     } catch (erro) {
       Comum.avisar(erro.message);
@@ -278,6 +318,7 @@
         estado.naoLidas.add(conversa.id);
         tocarAlerta();
       }
+      if (novaMensagem) confirmarEntrega(conversa);
     } else {
       estado.conversas.delete(conversa.id);
       estado.naoLidas.delete(conversa.id);
@@ -285,14 +326,36 @@
     if (estado.atual && estado.atual.id === conversa.id) {
       estado.atual = conversa;
       renderizarFicha();
+      confirmarRecebimento();
     }
     renderizarLista();
+  });
+
+  socket.on("presenca", (dados) => {
+    if (dados.tipo !== "cliente") return;
+    const conversas = [...estado.conversas.values()];
+    if (estado.atual) conversas.push(estado.atual);
+    conversas
+      .filter((conversa) => conversa.cliente.id === dados.cliente_id)
+      .forEach((conversa) => {
+        conversa.cliente.online = dados.online;
+        conversa.cliente.visto_por_ultimo = dados.visto_por_ultimo;
+      });
+    desenharPresenca();
+    renderizarLista();
+  });
+
+  socket.on("mensagens_confirmadas", (confirmacao) => {
+    if (estado.atual && confirmacao.conversa_id === estado.atual.id) {
+      Comum.aplicarConfirmacoes(elementos.mensagens, confirmacao);
+    }
   });
 
   socket.on("nova_mensagem", (mensagem) => {
     if (estado.atual && mensagem.conversa_id === estado.atual.id) {
       if (mensagem.remetente === "cliente") elementos.digitando.classList.add("oculto");
       adicionarMensagem(mensagem);
+      confirmarRecebimento();
     }
   });
 
@@ -326,6 +389,7 @@
       estado.conversas.set(conversa.id, conversa);
       document.querySelector('.abas button[data-aba="meus"]').click();
       renderizarFicha();
+      confirmarRecebimento();
       elementos.texto.focus();
     } catch (erro) {
       Comum.avisar(erro.message);
@@ -395,5 +459,11 @@
     if (elementos.arquivo.files[0]) enviarArquivo(elementos.arquivo.files[0]);
   });
 
-  setInterval(renderizarLista, 60000);
+  document.addEventListener("visibilitychange", confirmarRecebimento);
+  window.addEventListener("focus", confirmarRecebimento);
+
+  setInterval(() => {
+    renderizarLista();
+    desenharPresenca();
+  }, 60000);
 })();

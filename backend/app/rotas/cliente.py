@@ -2,7 +2,7 @@ from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from app import servico
-from app.eventos import difundir
+from app.eventos import difundir, esta_online, sala_usuario
 from app.rotas.comum import erro_http, ler_arquivo, resposta_arquivo
 
 roteador = APIRouter(prefix="/api/cliente", tags=["Cliente"])
@@ -11,9 +11,12 @@ roteador = APIRouter(prefix="/api/cliente", tags=["Cliente"])
 @roteador.get("/{token}")
 def abrir_atendimento(token: str):
     try:
-        return servico.abrir_atendimento_cliente(token)
+        dados = servico.abrir_atendimento_cliente(token)
     except servico.ErroNegocio as erro:
         raise erro_http(erro)
+    operador_id = dados["conversa"]["operador_id"]
+    dados["conversa"]["operador_online"] = bool(operador_id) and esta_online(sala_usuario(operador_id))
+    return dados
 
 
 @roteador.post("/{token}/anexos")
