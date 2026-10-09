@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MJChat - Administração</title>
+  <link rel="icon" href="/estatico/img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/estatico/css/estilo.css">
+</head>
+<body>
+  <div class="pagina-admin">
+    <header class="barra-topo">
+      <div class="marca"><span class="marca-icone" id="icone"></span>MJChat · Administração</div>
+      <div class="acoes-topo">
+        <span id="identificacao"></span>
+        <a class="botao botao-secundario" href="/atendimento">Atendimento</a>
+        <button class="botao botao-secundario" id="botao-sair" type="button">Sair</button>
+      </div>
+    </header>
+
+    <div class="conteudo-admin">
+      <nav class="abas">
+        <button type="button" class="ativa" data-aba="operadores">Operadores</button>
+        <button type="button" data-aba="clientes">Clientes</button>
+        <button type="button" data-aba="conversas">Conversas</button>
+      </nav>
+
+      <section class="secao" id="aba-operadores">
+        <form class="cartao" id="formulario-operador" autocomplete="off">
+          <h3>Cadastrar operador</h3>
+          <div class="grade-formulario">
+            <label class="campo"><span>Matrícula (4 números)</span><input id="operador-matricula" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required></label>
+            <label class="campo"><span>Nome</span><input id="operador-nome" maxlength="120" required></label>
+            <label class="campo"><span>Perfil</span>
+              <select id="operador-perfil"><option value="operador">Operador</option><option value="admin">Administrador</option></select>
+            </label>
+            <label class="campo"><span>Senha</span>
+              <div class="senha-com-botao">
+                <input id="operador-senha" type="text" minlength="6" required autocomplete="new-password">
+                <button type="button" class="botao botao-secundario" id="gerar-senha">Gerar</button>
+              </div>
+            </label>
+            <button class="botao" type="submit">Cadastrar</button>
+          </div>
+          <p class="texto-suave">A senha é armazenada criptografada e não poderá ser consultada depois. Entregue-a ao operador de forma segura.</p>
+        </form>
+
+        <div class="cartao">
+          <h3>Operadores cadastrados</h3>
+          <div class="tabela-container">
+            <table>
+              <thead><tr><th>Matrícula</th><th>Nome</th><th>Perfil</th><th>Situação</th><th>Último acesso</th><th>Ações</th></tr></thead>
+              <tbody id="tabela-operadores"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao oculto" id="aba-clientes">
+        <form class="cartao" id="formulario-cliente" autocomplete="off">
+          <h3 id="titulo-cliente">Cadastrar cliente e gerar link de atendimento</h3>
+          <div class="grade-formulario">
+            <label class="campo"><span>Nome</span><input id="cliente-nome" maxlength="150" required></label>
+            <label class="campo"><span>CPF</span><input id="cliente-cpf" inputmode="numeric" maxlength="14"></label>
+            <label class="campo"><span>Telefone (WhatsApp)</span><input id="cliente-telefone" inputmode="tel" maxlength="20" required></label>
+            <label class="campo"><span>Credor</span><input id="cliente-credor" maxlength="150" required></label>
+            <label class="campo"><span>Valor devido (R$)</span><input id="cliente-valor" type="number" min="0.01" step="0.01" required></label>
+            <label class="campo"><span>Vencimento</span><input id="cliente-vencimento" type="date" required></label>
+            <button class="botao" type="submit" id="salvar-cliente">Salvar</button>
+            <button class="botao botao-secundario oculto" type="button" id="cancelar-edicao">Cancelar edição</button>
+          </div>
+          <div class="link-gerado oculto" id="link-gerado"></div>
+        </form>
+
+        <div class="cartao">
+          <h3>Clientes</h3>
+          <div class="grade-formulario">
+            <label class="campo"><span>Buscar</span><input id="busca-cliente" placeholder="Nome, telefone, CPF ou credor"></label>
+          </div>
+          <div class="tabela-container">
+            <table>
+              <thead><tr><th>Nome</th><th>CPF</th><th>Telefone</th><th>Credor</th><th>Valor</th><th>Vencimento</th><th>Ações</th></tr></thead>
+              <tbody id="tabela-clientes"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="secao oculto" id="aba-conversas">
+        <form class="cartao" id="filtro-conversas">
+          <h3>Histórico de conversas</h3>
+          <div class="grade-formulario">
+            <label class="campo"><span>Buscar</span><input id="filtro-busca" placeholder="Nome, telefone, credor ou assunto"></label>
+            <label class="campo"><span>Situação</span>
+              <select id="filtro-status">
+                <option value="">Todas</option>
+                <option value="iniciada">Iniciada</option>
+                <option value="aguardando">Aguardando</option>
+                <option value="em_atendimento">Em atendimento</option>
+                <option value="encerrada">Encerrada</option>
+              </select>
+            </label>
+            <label class="campo"><span>De</span><input id="filtro-inicio" type="date"></label>
+            <label class="campo"><span>Até</span><input id="filtro-fim" type="date"></label>
+            <button class="botao" type="submit">Filtrar</button>
+          </div>
+        </form>
+        <div class="cartao">
+          <div class="tabela-container">
+            <table>
+              <thead><tr><th>Nº</th><th>Início</th><th>Cliente</th><th>Credor</th><th>Assunto</th><th>Operador</th><th>Situação</th><th>Guardar até</th><th></th></tr></thead>
+              <tbody id="tabela-conversas"></tbody>
+            </table>
+          </div>
+          <div class="paginacao">
+            <button type="button" class="botao botao-secundario" id="pagina-anterior">Anterior</button>
+            <span id="info-pagina"></span>
+            <button type="button" class="botao botao-secundario" id="pagina-seguinte">Próxima</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-fundo oculto" id="modal-senha">
+    <form class="modal" id="formulario-senha" autocomplete="off">
+      <h3>Redefinir senha</h3>
+      <p class="texto-suave" id="senha-operador"></p>
+      <label class="campo"><span>Nova senha</span>
+        <div class="senha-com-botao">
+          <input id="nova-senha" type="text" minlength="6" required autocomplete="new-password">
+          <button type="button" class="botao botao-secundario" id="gerar-nova-senha">Gerar</button>
+        </div>
+      </label>
+      <div class="modal-acoes">
+        <button type="button" class="botao botao-secundario" id="cancelar-senha">Cancelar</button>
+        <button type="submit" class="botao">Salvar senha</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal-fundo oculto" id="modal-conversa">
+    <div class="modal modal-largo">
+      <div class="modal-cabecalho">
+        <div>
+          <h3 id="conversa-titulo"></h3>
+          <div class="texto-suave" id="conversa-detalhes"></div>
+        </div>
+        <button type="button" class="botao botao-secundario" id="fechar-conversa">Fechar</button>
+      </div>
+      <div class="area-mensagens"><div class="lista-mensagens" id="conversa-mensagens"></div></div>
+    </div>
+  </div>
+
+  <script src="/estatico/js/comum.js"></script>
+  <script src="/estatico/js/admin.js"></script>
+</body>
+</html>

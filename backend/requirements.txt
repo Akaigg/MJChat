@@ -1,0 +1,10 @@
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+python-socketio==5.17.0
+SQLAlchemy==2.1.4
+pyodbc==5.3.0
+bcrypt==5.0.0
+PyJWT==2.15.1
+python-multipart==0.0.32
+python-dotenv==1.2.4
+tzdata

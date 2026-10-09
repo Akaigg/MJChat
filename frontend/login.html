@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MJChat - Acesso</title>
+  <link rel="icon" href="/estatico/img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/estatico/css/estilo.css">
+</head>
+<body>
+  <div class="pagina-login">
+    <form class="cartao-login" id="formulario" autocomplete="off">
+      <div class="marca"><span class="marca-icone" id="icone"></span>MJChat</div>
+      <div>
+        <h1>Acesso ao atendimento</h1>
+        <p>Informe sua matrícula de 4 números e a senha fornecida pelo administrador.</p>
+      </div>
+      <div class="alerta oculto" id="erro"></div>
+      <label class="campo">
+        <span>Matrícula</span>
+        <input id="matricula" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autofocus>
+      </label>
+      <label class="campo">
+        <span>Senha</span>
+        <input id="senha" type="password" required>
+      </label>
+      <button class="botao" type="submit" id="botao">Entrar</button>
+    </form>
+  </div>
+
+  <script src="/estatico/js/comum.js"></script>
+  <script>
+    (() => {
+      const formulario = document.getElementById("formulario");
+      const erro = document.getElementById("erro");
+      const botao = document.getElementById("botao");
+      const matricula = document.getElementById("matricula");
+      document.getElementById("icone").innerHTML = Comum.icones.chat;
+
+      matricula.addEventListener("input", () => {
+        matricula.value = matricula.value.replace(/\D/g, "").slice(0, 4);
+      });
+
+      formulario.addEventListener("submit", async (evento) => {
+        evento.preventDefault();
+        erro.classList.add("oculto");
+        botao.disabled = true;
+        try {
+          const resposta = await Comum.api("/api/autenticacao/login", {
+            method: "POST",
+            body: { matricula: matricula.value, senha: document.getElementById("senha").value },
+          });
+          Comum.sessao.salvar(resposta.token, resposta.usuario);
+          location.href = resposta.usuario.perfil === "admin" ? "/admin" : "/atendimento";
+        } catch (falha) {
+          erro.textContent = falha.message;
+          erro.classList.remove("oculto");
+          botao.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MJChat - Atendimento</title>
+  <link rel="icon" href="/estatico/img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/estatico/css/estilo.css">
+</head>
+<body>
+  <div class="pagina-operador">
+    <header class="barra-topo">
+      <div class="marca"><span class="marca-icone" id="icone"></span>MJChat</div>
+      <div class="acoes-topo">
+        <span id="identificacao"></span>
+        <a class="botao botao-secundario oculto" href="/admin" id="link-admin">Administração</a>
+        <button class="botao botao-secundario" id="botao-sair" type="button">Sair</button>
+      </div>
+    </header>
+
+    <div class="corpo-operador" id="corpo">
+      <aside class="painel-lateral">
+        <nav class="abas">
+          <button type="button" class="ativa" data-aba="fila">Fila<span class="contador" id="contador-fila">0</span></button>
+          <button type="button" data-aba="meus">Meus atendimentos<span class="contador" id="contador-meus">0</span></button>
+        </nav>
+        <ul class="lista-conversas" id="lista-conversas"></ul>
+      </aside>
+
+      <section class="painel-chat">
+        <div class="vazio-chat" id="vazio-chat">
+          <strong>Nenhuma conversa selecionada</strong>
+          <span>Escolha um cliente na fila para assumir o atendimento.</span>
+        </div>
+
+        <div class="ficha-cliente oculto" id="ficha">
+          <div>
+            <h2><button type="button" class="botao botao-secundario botao-voltar" id="botao-voltar">Voltar</button> <span id="ficha-nome"></span> <span class="etiqueta" id="ficha-status"></span></h2>
+            <dl class="dados-cliente">
+              <div><dt>Credor</dt><dd id="ficha-credor"></dd></div>
+              <div><dt>Telefone</dt><dd id="ficha-telefone"></dd></div>
+              <div><dt>Valor devido</dt><dd class="valor" id="ficha-valor"></dd></div>
+              <div><dt>Vencimento</dt><dd id="ficha-vencimento"></dd></div>
+            </dl>
+            <div class="assunto-conversa" id="ficha-assunto"></div>
+          </div>
+          <div class="acoes-ficha">
+            <button type="button" class="botao" id="botao-assumir">Assumir atendimento</button>
+            <button type="button" class="botao botao-secundario" id="botao-boleto">Enviar boleto</button>
+            <button type="button" class="botao botao-perigo" id="botao-encerrar">Encerrar</button>
+          </div>
+        </div>
+
+        <main class="area-mensagens oculto" id="area-mensagens">
+          <div class="lista-mensagens" id="lista-mensagens"></div>
+          <div class="indicador-digitando oculto" id="digitando">Cliente digitando...</div>
+        </main>
+
+        <form class="compositor oculto" id="compositor" autocomplete="off">
+          <input type="file" id="arquivo" class="oculto" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+          <button type="button" class="botao-icone" id="botao-anexo" title="Enviar foto ou arquivo" aria-label="Enviar foto ou arquivo"></button>
+          <textarea id="texto" rows="1" maxlength="4000" placeholder="Digite sua mensagem (Enter envia, Shift+Enter quebra linha)"></textarea>
+          <button type="submit" class="botao-icone botao-enviar" id="botao-enviar" title="Enviar" aria-label="Enviar"></button>
+        </form>
+
+        <div class="barra-aviso oculto" id="barra-aviso"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-fundo oculto" id="modal-boleto">
+    <form class="modal" id="formulario-boleto">
+      <h3>Enviar boleto</h3>
+      <label class="campo">
+        <span>Link do boleto</span>
+        <input id="boleto-url" type="url" placeholder="https://..." required>
+      </label>
+      <div class="grade-formulario">
+        <label class="campo">
+          <span>Valor (R$)</span>
+          <input id="boleto-valor" type="number" min="0.01" step="0.01" required>
+        </label>
+        <label class="campo">
+          <span>Vencimento</span>
+          <input id="boleto-vencimento" type="date" required>
+        </label>
+      </div>
+      <label class="campo">
+        <span>Mensagem (opcional)</span>
+        <input id="boleto-mensagem" maxlength="500" placeholder="Ex.: Segue o boleto com o desconto combinado">
+      </label>
+      <div class="modal-acoes">
+        <button type="button" class="botao botao-secundario" id="cancelar-boleto">Cancelar</button>
+        <button type="submit" class="botao">Enviar</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="/estatico/js/socket.io.min.js"></script>
+  <script src="/estatico/js/comum.js"></script>
+  <script src="/estatico/js/atendimento.js"></script>
+</body>
+</html>

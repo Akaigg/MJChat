@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b7a5c">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Atendimento</title>
+  <link rel="icon" href="/estatico/img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/estatico/css/estilo.css">
+</head>
+<body>
+  <div class="pagina-cliente">
+    <header class="cabecalho-cliente">
+      <div class="avatar" id="avatar"></div>
+      <div>
+        <strong id="nome-empresa">Atendimento</strong>
+        <small id="status-atendimento">Conectando...</small>
+      </div>
+    </header>
+
+    <div class="tela-erro oculto" id="tela-erro">
+      <h2>Link inválido</h2>
+      <p id="texto-erro">Este link de atendimento não é válido ou expirou. Utilize o link enviado no WhatsApp.</p>
+    </div>
+
+    <main class="area-mensagens" id="area-mensagens">
+      <div class="lista-mensagens" id="lista-mensagens"></div>
+      <div class="indicador-digitando oculto" id="digitando">Operador digitando...</div>
+    </main>
+
+    <form class="compositor oculto" id="compositor" autocomplete="off">
+      <input type="file" id="arquivo" class="oculto" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+      <button type="button" class="botao-icone" id="botao-anexo" title="Enviar foto ou arquivo" aria-label="Enviar foto ou arquivo"></button>
+      <textarea id="texto" rows="1" maxlength="4000" placeholder="Digite sua mensagem"></textarea>
+      <button type="submit" class="botao-icone botao-enviar" id="botao-enviar" title="Enviar" aria-label="Enviar"></button>
+    </form>
+
+    <div class="barra-aviso oculto" id="barra-encerrada">
+      <span>Este atendimento foi encerrado.</span>
+      <button type="button" class="botao" id="botao-novo">Iniciar novo atendimento</button>
+    </div>
+  </div>
+
+  <script src="/estatico/js/socket.io.min.js"></script>
+  <script src="/estatico/js/comum.js"></script>
+  <script src="/estatico/js/cliente.js"></script>
+</body>
+</html>
